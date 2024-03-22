@@ -1,0 +1,3 @@
+mkdir employee-api
+cd employee-api
+npm init -y
