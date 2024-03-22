@@ -1,3 +1,123 @@
 mkdir employee-api
 cd employee-api
 npm init -y
+npm install typescript @types/node objection knex sqlite3
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+import { Config } from 'knex';
+
+const config: Config = {
+  client: 'sqlite3',
+  connection: {
+    filename: './database.db',
+  },
+  useNullAsDefault: true,
+};
+
+export default config;
+// src/models/Employee.ts
+import { Model } from 'objection';
+
+class Employee extends Model {
+  static tableName = 'employees';
+
+  id!: number;
+  name!: string;
+  email!: string;
+  phone!: string;
+  dob!: Date;
+  createdOn!: Date;
+  createdBy!: string;
+  updatedOn!: Date;
+  updatedBy!: string;
+
+  static jsonSchema = {
+    type: 'object',
+    required: ['name', 'email', 'phone', 'dob'],
+
+    properties: {
+      id: { type: 'integer' },
+      name: { type: 'string', minLength: 1, maxLength: 255 },
+      email: { type: 'string', format: 'email', maxLength: 255 },
+      phone: { type: 'string', minLength: 10, maxLength: 15 },
+      dob: { type: 'string', format: 'date' },
+      createdOn: { type: 'string', format: 'date-time' },
+      createdBy: { type: 'string' },
+      updatedOn: { type: 'string', format: 'date-time' },
+      updatedBy: { type: 'string' },
+    }
+  };
+}
+
+export default Employee;
+npx knex migrate:make create_employee_table
+// src/server.ts
+import express, { Request, Response } from 'express';
+import bodyParser from 'body-parser';
+import Employee from './models/Employee';
+import knex from 'knex';
+import knexConfig from '../knexfile';
+
+const app = express();
+const PORT = 3000;
+
+app.use(bodyParser.json());
+
+const db = knex(knexConfig);
+
+// Create employee
+app.post('/employees', async (req: Request, res: Response) => {
+  try {
+    const employee = await Employee.query(db).insert(req.body);
+    res.status(201).json(employee);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Read all employees
+app.get('/employees', async (req: Request, res: Response) => {
+  try {
+    const employees = await Employee.query(db);
+    res.status(200).json(employees);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update employee
+app.put('/employees/:id', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id;
+    const updatedEmployee = await Employee.query(db).patchAndFetchById(id, req.body);
+    res.status(200).json(updatedEmployee);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete employee
+app.delete('/employees/:id', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id;
+    await Employee.query(db).deleteById(id);
+    res.status(204).send();node dist/server.js
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+npx tsc
+node dist/server.js
